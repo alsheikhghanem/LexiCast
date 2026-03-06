@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="47169846-bb9b-4424-8628-727954ea991a" name="Changes" comment="feat: implement real-time word-level highlighting synced with audio playback">
+    <list default="true" id="47169846-bb9b-4424-8628-727954ea991a" name="Changes" comment="feat: implement fully automated weighted lexical fallback algorithm for flawless word sync without manual calibration">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/index.html" afterDir="false" />
     </list>
@@ -112,7 +112,7 @@
       <updated>1772804982353</updated>
       <workItem from="1772804983466" duration="88000" />
       <workItem from="1772805240185" duration="108000" />
-      <workItem from="1772805353110" duration="11159000" />
+      <workItem from="1772805353110" duration="15409000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -170,7 +170,15 @@
       <option name="project" value="LOCAL" />
       <updated>1772824731294</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="feat: implement fully automated weighted lexical fallback algorithm for flawless word sync without manual calibration">
+      <option name="closed" value="true" />
+      <created>1772827735165</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1772827735165</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -184,7 +192,8 @@
     <MESSAGE value="feat: create responsive HTML UI with Tailwind and live Markdown parsing" />
     <MESSAGE value="feat: integrate frontend with FastAPI backend for audio generation and preview" />
     <MESSAGE value="feat: implement real-time word-level highlighting synced with audio playback" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: implement real-time word-level highlighting synced with audio playback" />
+    <MESSAGE value="feat: implement fully automated weighted lexical fallback algorithm for flawless word sync without manual calibration" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: implement fully automated weighted lexical fallback algorithm for flawless word sync without manual calibration" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/AudiobookProject$main.coverage" NAME="main Coverage Results" MODIFIED="1772808066663" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />

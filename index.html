@@ -8,12 +8,33 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+
+    <style>
+        /* إيقاف علامات Backticks المزعجة من Tailwind Typography */
+        .prose :not(pre) > code::before { content: none !important; }
+        .prose :not(pre) > code::after { content: none !important; }
+
+        /* تجميل الكلمات التقنية (Inline Code) بلون احترافي */
+        .prose :not(pre) > code {
+            color: #be185d;
+            background-color: #fdf2f8;
+            padding: 0.15rem 0.35rem;
+            border-radius: 0.375rem;
+            font-weight: 600;
+        }
+
+        /* الإضافة الجديدة: إجبار جميع العناوين لتكون من اليسار إلى اليمين */
+        .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+            direction: ltr !important;
+            text-align: left !important;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-8 font-sans">
 
     <div class="max-w-6xl mx-auto bg-white p-6 rounded-xl shadow-lg grid grid-cols-1 md:grid-cols-3 gap-8">
 
-        <div class="col-span-1 space-y-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <div class="col-span-1 space-y-6 bg-gray-50 p-4 rounded-lg border border-gray-200 h-fit">
             <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Settings</h2>
 
             <div>
@@ -53,12 +74,12 @@
         <div class="col-span-2 space-y-6">
 
             <div>
-                <label class="block text-sm font-bold text-gray-800 mb-2">Input Text (Markdown Supported)</label>
-                <textarea id="text-input" rows="6" class="w-full border border-gray-300 rounded-lg p-3 font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y" placeholder="Paste your markdown text here..."></textarea>
+                <label class="block text-sm font-bold text-gray-800 mb-2">Input Text (Supports {{Visual|Phonetic}} Syntax)</label>
+                <textarea id="text-input" rows="8" class="w-full border border-gray-300 rounded-lg p-3 font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y" placeholder="e.g. يُعد الـ {{Multidimensional array|مَالْتِي دَايْمِنْشِنَالْ أَرَايْ}} عبارة عن..."></textarea>
             </div>
 
             <div>
-                <label class="block text-sm font-bold text-gray-800 mb-2">Live Preview (Fully Automated Smart Sync)</label>
+                <label class="block text-sm font-bold text-gray-800 mb-2">Live Preview (DualSync Engine with Memory Map)</label>
                 <div id="markdown-display" class="w-full border border-gray-200 rounded-lg p-6 bg-white prose max-w-none min-h-[250px] max-h-[500px] overflow-y-auto shadow-inner text-gray-800 leading-relaxed transition-all scroll-smooth relative">
                 </div>
             </div>
@@ -83,28 +104,56 @@
         let animationFrameId = null;
         let currentActiveSpanId = null;
 
+        // خريطة الذاكرة لربط الكلمات المنطوقة بالكلمات المعروضة بشكل معصوم عن الخطأ
+        let spokenWordsList = [];
+        let spokenToSpanMap = [];
+
         function isArabicText(text) {
             return /[\u0600-\u06FF]/.test(text);
         }
 
-        function stripMarkdown(mdText) {
-            const tempDiv = document.createElement("div");
-            tempDiv.innerHTML = marked.parse(mdText);
-            return tempDiv.textContent || tempDiv.innerText || "";
-        }
-
-        textInput.addEventListener('input', () => {
+        // يقوم برسم واجهة العرض بشكل حي ومعالجة التشفير المزدوج بأمان تام
+        function renderLivePreview() {
             const rawText = textInput.value;
-            markdownDisplay.innerHTML = marked.parse(rawText);
+            let html = marked.parse(rawText);
+
+            // استبدال كود التشفير المزدوج بعنصر HTML ذكي يحمل بيانات النطق المخفية
+            html = html.replace(/\{\{(.*?)\|(.*?)\}\}/g, '<span class="dual-word text-blue-800 bg-blue-50 px-1 border border-blue-200 rounded font-bold transition-all duration-75 ease-in-out inline-block" data-phonetic="$2">$1</span>');
+
+            markdownDisplay.innerHTML = html;
+
             const isRTL = isArabicText(rawText);
             markdownDisplay.setAttribute("dir", isRTL ? "rtl" : "ltr");
             markdownDisplay.className = `w-full border border-gray-200 rounded-lg p-6 bg-white prose max-w-none min-h-[250px] max-h-[500px] overflow-y-auto shadow-inner text-gray-800 leading-relaxed transition-all scroll-smooth relative ${isRTL ? 'text-right' : 'text-left'}`;
-        });
+        }
 
-        // DOM Preparation: Wrap each word securely
-        function wrapWordsInMarkdownDisplay() {
+        textInput.addEventListener('input', renderLivePreview);
+
+        // هذه الدالة العبقرية تبني عناصر التظليل، وتستخرج النص الصوتي النقي (بدون ماركدوان) وتربط التوقيتات
+        function buildMemoryMapAndDOM() {
             wordElementsCount = 0;
+            spokenWordsList = [];
+            spokenToSpanMap = [];
+
             function walk(node) {
+                // إذا وجدنا الكلمة المشفرة المزدوجة، نعاملها كوحدة واحدة ونسحب النص المعرب منها
+                if (node.nodeType === Node.ELEMENT_NODE && node.classList && node.classList.contains('dual-word')) {
+                    const spanId = `md-word-${wordElementsCount++}`;
+                    node.id = spanId;
+                    node.setAttribute('data-original-class', node.className);
+
+                    const phoneticText = node.getAttribute('data-phonetic');
+                    const phoneticWords = phoneticText.split(/\s+/);
+
+                    phoneticWords.forEach(pw => {
+                        if (pw.trim().length > 0) {
+                            spokenWordsList.push(pw);
+                            spokenToSpanMap.push(spanId); // ربط النطق المتعدد بمربع عرض واحد
+                        }
+                    });
+                    return; // نتخطى الدخول في أبناء هذا العنصر
+                }
+
                 if (node.nodeType === Node.TEXT_NODE) {
                     const text = node.nodeValue;
                     const words = text.split(/(\s+)/);
@@ -113,12 +162,16 @@
                     const fragment = document.createDocumentFragment();
                     words.forEach(word => {
                         if (word.trim().length > 0) {
+                            const spanId = `md-word-${wordElementsCount++}`;
                             const span = document.createElement('span');
-                            span.id = `md-word-${wordElementsCount}`;
+                            span.id = spanId;
                             span.className = "transition-all duration-75 ease-in-out px-1 rounded inline-block text-gray-800";
+                            span.setAttribute('data-original-class', span.className);
                             span.textContent = word;
                             fragment.appendChild(span);
-                            wordElementsCount++;
+
+                            spokenWordsList.push(word);
+                            spokenToSpanMap.push(spanId);
                         } else {
                             fragment.appendChild(document.createTextNode(word));
                         }
@@ -128,13 +181,16 @@
                     Array.from(node.childNodes).forEach(walk);
                 }
             }
+
             Array.from(markdownDisplay.childNodes).forEach(walk);
+
+            // إرجاع النص النقي تماماً للذكاء الاصطناعي ليقرأه
+            return spokenWordsList.join(" ");
         }
 
-        // Method 1: API Direct Alignment
-        function alignBoundariesToSpans(apiBoundaries) {
+        function alignBoundariesToMemoryMap(apiBoundaries) {
             const processedBoundaries = [];
-            let currentSpanIndex = 0;
+            let spokenIndex = 0;
             const cleanRegex = /[^\u0600-\u06FFa-zA-Z0-9]/g;
 
             for (let b of apiBoundaries) {
@@ -143,21 +199,19 @@
                 if (!cleanApiText) continue;
 
                 let matchedSpanId = null;
-                for (let i = currentSpanIndex; i < Math.min(currentSpanIndex + 6, wordElementsCount); i++) {
-                    const spanEl = document.getElementById(`md-word-${i}`);
-                    if (!spanEl) continue;
 
-                    const cleanSpanText = spanEl.textContent.replace(cleanRegex, '').toLowerCase();
-                    if (cleanSpanText && (cleanSpanText.includes(cleanApiText) || cleanApiText.includes(cleanSpanText))) {
-                        matchedSpanId = `md-word-${i}`;
-                        currentSpanIndex = i + 1;
+                for (let i = spokenIndex; i < Math.min(spokenIndex + 6, spokenWordsList.length); i++) {
+                    const cleanExpected = spokenWordsList[i].replace(cleanRegex, '').toLowerCase();
+                    if (cleanExpected && (cleanExpected.includes(cleanApiText) || cleanApiText.includes(cleanExpected))) {
+                        matchedSpanId = spokenToSpanMap[i];
+                        spokenIndex = i + 1;
                         break;
                     }
                 }
 
-                if (!matchedSpanId && currentSpanIndex < wordElementsCount) {
-                    matchedSpanId = `md-word-${currentSpanIndex}`;
-                    currentSpanIndex++;
+                if (!matchedSpanId && spokenIndex < spokenWordsList.length) {
+                    matchedSpanId = spokenToSpanMap[spokenIndex];
+                    spokenIndex++;
                 }
 
                 if (matchedSpanId) {
@@ -171,17 +225,12 @@
             return processedBoundaries;
         }
 
-        // Method 2: Fully Automated Weighted Lexical Fallback
-        // Triggers seamlessly if API fails to provide boundaries
         function generateAutomatedWeightedBoundaries(totalDurationMs) {
             let totalWeight = 0;
             const weights = [];
 
-            for (let i = 0; i < wordElementsCount; i++) {
-                const span = document.getElementById(`md-word-${i}`);
-                if (!span) continue;
-
-                const word = span.textContent;
+            for (let i = 0; i < spokenWordsList.length; i++) {
+                const word = spokenWordsList[i];
                 let weight = word.length * 50;
 
                 if (/[.,!?؛،:]/.test(word)) weight += 350;
@@ -196,21 +245,21 @@
             let currentMs = 0;
             const boundaries = [];
 
-            for (let i = 0; i < wordElementsCount; i++) {
+            for (let i = 0; i < spokenWordsList.length; i++) {
                 const duration = weights[i] * msPerWeightUnit;
                 boundaries.push({
                     startMs: currentMs,
                     endMs: currentMs + duration,
-                    spanId: `md-word-${i}`
+                    spanId: spokenToSpanMap[i]
                 });
                 currentMs += duration;
             }
             return boundaries;
         }
 
-        async function fetchAndPlayAudio(textToSpeak, buttonElement) {
+        async function fetchAndPlayAudio(buttonElement) {
             const rawText = textInput.value;
-            if (!rawText.trim() && textToSpeak === stripMarkdown(rawText)) {
+            if (!rawText.trim()) {
                 alert("Please enter some text first.");
                 return;
             }
@@ -223,16 +272,18 @@
             currentActiveSpanId = null;
 
             try {
-                markdownDisplay.innerHTML = marked.parse(textToSpeak === rawText ? rawText : textInput.value);
-                const isRTL = isArabicText(textToSpeak);
-                markdownDisplay.setAttribute("dir", isRTL ? "rtl" : "ltr");
-                wrapWordsInMarkdownDisplay();
+                // 1. تحديث الشاشة وتجهيز شجرة العناصر
+                renderLivePreview();
 
+                // 2. سحب النص الصوتي النقي (بدون ماركدوان) وخريطة التزامن
+                const finalSpokenText = buildMemoryMapAndDOM();
+
+                // 3. إرسال النص الصوتي النقي فقط للخادم
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        text: textToSpeak,
+                        text: finalSpokenText,
                         voice: voiceSelect.value,
                         rate: "+0%"
                     })
@@ -243,14 +294,12 @@
                 const data = await response.json();
                 audioPlayer.src = "data:audio/mp3;base64," + data.audio;
 
-                // Magic happens here: Wait for metadata to know total length
                 audioPlayer.onloadedmetadata = () => {
                     const rawBoundaries = data.boundaries || [];
 
                     if (rawBoundaries.length > 0) {
-                        currentBoundaries = alignBoundariesToSpans(rawBoundaries);
+                        currentBoundaries = alignBoundariesToMemoryMap(rawBoundaries);
                     } else {
-                        // Flawless automatic fallback
                         const totalDurationMs = audioPlayer.duration * 1000;
                         currentBoundaries = generateAutomatedWeightedBoundaries(totalDurationMs);
                     }
@@ -270,7 +319,6 @@
             }
         }
 
-        // Precision 60FPS Render Engine
         function syncHighlightEngine() {
             if (audioPlayer.paused || audioPlayer.ended || currentBoundaries.length === 0) return;
 
@@ -287,7 +335,10 @@
             if (activeSpanId !== currentActiveSpanId) {
                 if (currentActiveSpanId) {
                     const oldSpan = document.getElementById(currentActiveSpanId);
-                    if (oldSpan) oldSpan.className = "transition-all duration-75 ease-in-out px-1 rounded inline-block text-gray-800";
+                    if (oldSpan) {
+                        // استعادة التصميم الأصلي (سواء كان شفافاً أو أزرق للكلمات المزدوجة)
+                        oldSpan.className = oldSpan.getAttribute('data-original-class');
+                    }
                 }
 
                 if (activeSpanId) {
@@ -315,17 +366,18 @@
         });
 
         generateBtn.addEventListener('click', () => {
-            const rawText = textInput.value;
-            fetchAndPlayAudio(stripMarkdown(rawText), generateBtn);
+            fetchAndPlayAudio(generateBtn);
         });
 
         previewBtn.addEventListener('click', () => {
             const isArabic = voiceSelect.value.includes('ar-');
             const previewText = isArabic
-                ? "مرحباً، أنا أختبر نبرة هذا الصوت الآن."
-                : "Hello, I am testing the tone of this voice right now.";
+                ? "يُعد الـ {{Multidimensional array|مَالْتِي دَايْمِنْشِنَالْ أَرَايْ}} جزءاً هاماً."
+                : "Hello, I am testing the {{Audio|أوديو}} now.";
+
             textInput.value = previewText;
-            fetchAndPlayAudio(previewText, previewBtn);
+            textInput.dispatchEvent(new Event('input'));
+            fetchAndPlayAudio(previewBtn);
         });
 
         rateSelect.addEventListener('change', () => {

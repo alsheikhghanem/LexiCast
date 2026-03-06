@@ -1,4 +1,3 @@
-
 fastapi
 pydantic
 edge-tts

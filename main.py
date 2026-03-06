@@ -1,14 +1,11 @@
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import edge_tts
-import os
+import base64
 
-# Initialize FastAPI app
 app = FastAPI(title="TTS Local Server")
 
-# Allow requests from our future local HTML frontend (CORS)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,7 +15,6 @@ app.add_middleware(
 )
 
 
-# Define the data structure the API expects to receive
 class TTSRequest(BaseModel):
     text: str
     voice: str = "ar-SA-HamedNeural"
@@ -32,21 +28,28 @@ def read_root():
 
 @app.post("/api/tts")
 async def generate_tts(request: TTSRequest):
-    output_file = "temp_audio.mp3"
-
-    # Remove old file if it exists to avoid conflicts
-    if os.path.exists(output_file):
-        os.remove(output_file)
-
-    print(f"Generating audio... Voice: {request.voice}, Rate: {request.rate}")
-
-    # Generate the audio file
     communicate = edge_tts.Communicate(request.text, request.voice, rate=request.rate)
-    await communicate.save(output_file)
 
-    # Return the generated MP3 file to the frontend
-    return FileResponse(
-        output_file,
-        media_type="audio/mpeg",
-        filename="audiobook.mp3"
-    )
+    audio_data = bytearray()
+    word_boundaries = []
+
+    print(f"--- Starting stream for Voice: {request.voice} | Rate: {request.rate} ---")
+
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            audio_data.extend(chunk["data"])
+        elif chunk["type"] == "WordBoundary":
+            word_boundaries.append({
+                "text": chunk.get("text", ""),
+                "offset": chunk.get("offset", 0),
+                "duration": chunk.get("duration", 0)
+            })
+
+    print(f"--- Stream finished. Collected {len(word_boundaries)} word boundaries. ---")
+
+    audio_base64 = base64.b64encode(audio_data).decode("utf-8")
+
+    return {
+        "audio": audio_base64,
+        "boundaries": word_boundaries
+    }

@@ -27,11 +27,11 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Speed Rate</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Playback Speed</label>
                 <select id="rate-select" class="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 outline-none">
-                    <option value="+0%">1.0x (Normal)</option>
-                    <option value="+25%">1.25x (Fast)</option>
-                    <option value="+50%">1.5x (Very Fast)</option>
+                    <option value="1.0">1.0x (Normal)</option>
+                    <option value="1.25">1.25x (Fast)</option>
+                    <option value="1.5">1.5x (Very Fast)</option>
                 </select>
             </div>
 
@@ -58,8 +58,8 @@
             </div>
 
             <div>
-                <label class="block text-sm font-bold text-gray-800 mb-2">Live Preview (Word Highlighting Enabled)</label>
-                <div id="markdown-display" class="w-full border border-gray-200 rounded-lg p-6 bg-white prose max-w-none min-h-[250px] shadow-inner text-gray-800 leading-relaxed transition-all">
+                <label class="block text-sm font-bold text-gray-800 mb-2">Live Preview (Fully Automated Smart Sync)</label>
+                <div id="markdown-display" class="w-full border border-gray-200 rounded-lg p-6 bg-white prose max-w-none min-h-[250px] max-h-[500px] overflow-y-auto shadow-inner text-gray-800 leading-relaxed transition-all scroll-smooth relative">
                 </div>
             </div>
 
@@ -79,40 +79,31 @@
         const API_URL = 'http://127.0.0.1:8000/api/tts';
 
         let currentBoundaries = [];
-        let estimatedBoundaries = [];
         let wordElementsCount = 0;
+        let animationFrameId = null;
+        let currentActiveSpanId = null;
 
         function isArabicText(text) {
-            const arabicPattern = /[\u0600-\u06FF]/;
-            return arabicPattern.test(text);
+            return /[\u0600-\u06FF]/.test(text);
         }
 
         function stripMarkdown(mdText) {
-            const htmlText = marked.parse(mdText);
             const tempDiv = document.createElement("div");
-            tempDiv.innerHTML = htmlText;
+            tempDiv.innerHTML = marked.parse(mdText);
             return tempDiv.textContent || tempDiv.innerText || "";
         }
 
-        // Parse markdown while typing
         textInput.addEventListener('input', () => {
             const rawText = textInput.value;
             markdownDisplay.innerHTML = marked.parse(rawText);
-            markdownDisplay.setAttribute("dir", isArabicText(rawText) ? "rtl" : "ltr");
-
-            if(isArabicText(rawText)){
-                markdownDisplay.classList.add('text-right');
-                markdownDisplay.classList.remove('text-left');
-            } else {
-                markdownDisplay.classList.add('text-left');
-                markdownDisplay.classList.remove('text-right');
-            }
+            const isRTL = isArabicText(rawText);
+            markdownDisplay.setAttribute("dir", isRTL ? "rtl" : "ltr");
+            markdownDisplay.className = `w-full border border-gray-200 rounded-lg p-6 bg-white prose max-w-none min-h-[250px] max-h-[500px] overflow-y-auto shadow-inner text-gray-800 leading-relaxed transition-all scroll-smooth relative ${isRTL ? 'text-right' : 'text-left'}`;
         });
 
-        // Advanced algorithm to wrap individual words inside the rendered Markdown HTML
+        // DOM Preparation: Wrap each word securely
         function wrapWordsInMarkdownDisplay() {
             wordElementsCount = 0;
-
             function walk(node) {
                 if (node.nodeType === Node.TEXT_NODE) {
                     const text = node.nodeValue;
@@ -124,7 +115,7 @@
                         if (word.trim().length > 0) {
                             const span = document.createElement('span');
                             span.id = `md-word-${wordElementsCount}`;
-                            span.className = "transition-colors duration-150 ease-in-out px-1 rounded";
+                            span.className = "transition-all duration-75 ease-in-out px-1 rounded inline-block text-gray-800";
                             span.textContent = word;
                             fragment.appendChild(span);
                             wordElementsCount++;
@@ -133,14 +124,88 @@
                         }
                     });
                     node.parentNode.replaceChild(fragment, node);
-                } else if (node.nodeType === Node.ELEMENT_NODE) {
-                    if (node.nodeName !== 'SCRIPT' && node.nodeName !== 'STYLE') {
-                        Array.from(node.childNodes).forEach(walk);
-                    }
+                } else if (node.nodeType === Node.ELEMENT_NODE && !['SCRIPT', 'STYLE'].includes(node.nodeName)) {
+                    Array.from(node.childNodes).forEach(walk);
                 }
             }
-
             Array.from(markdownDisplay.childNodes).forEach(walk);
+        }
+
+        // Method 1: API Direct Alignment
+        function alignBoundariesToSpans(apiBoundaries) {
+            const processedBoundaries = [];
+            let currentSpanIndex = 0;
+            const cleanRegex = /[^\u0600-\u06FFa-zA-Z0-9]/g;
+
+            for (let b of apiBoundaries) {
+                if (!b.text) continue;
+                const cleanApiText = b.text.replace(cleanRegex, '').toLowerCase();
+                if (!cleanApiText) continue;
+
+                let matchedSpanId = null;
+                for (let i = currentSpanIndex; i < Math.min(currentSpanIndex + 6, wordElementsCount); i++) {
+                    const spanEl = document.getElementById(`md-word-${i}`);
+                    if (!spanEl) continue;
+
+                    const cleanSpanText = spanEl.textContent.replace(cleanRegex, '').toLowerCase();
+                    if (cleanSpanText && (cleanSpanText.includes(cleanApiText) || cleanApiText.includes(cleanSpanText))) {
+                        matchedSpanId = `md-word-${i}`;
+                        currentSpanIndex = i + 1;
+                        break;
+                    }
+                }
+
+                if (!matchedSpanId && currentSpanIndex < wordElementsCount) {
+                    matchedSpanId = `md-word-${currentSpanIndex}`;
+                    currentSpanIndex++;
+                }
+
+                if (matchedSpanId) {
+                    processedBoundaries.push({
+                        startMs: b.offset / 10000,
+                        endMs: (b.offset + b.duration) / 10000,
+                        spanId: matchedSpanId
+                    });
+                }
+            }
+            return processedBoundaries;
+        }
+
+        // Method 2: Fully Automated Weighted Lexical Fallback
+        // Triggers seamlessly if API fails to provide boundaries
+        function generateAutomatedWeightedBoundaries(totalDurationMs) {
+            let totalWeight = 0;
+            const weights = [];
+
+            for (let i = 0; i < wordElementsCount; i++) {
+                const span = document.getElementById(`md-word-${i}`);
+                if (!span) continue;
+
+                const word = span.textContent;
+                let weight = word.length * 50;
+
+                if (/[.,!?؛،:]/.test(word)) weight += 350;
+                if (/[\n\r]/.test(word)) weight += 500;
+
+                weight = Math.max(weight, 50);
+                weights.push(weight);
+                totalWeight += weight;
+            }
+
+            const msPerWeightUnit = totalDurationMs / totalWeight;
+            let currentMs = 0;
+            const boundaries = [];
+
+            for (let i = 0; i < wordElementsCount; i++) {
+                const duration = weights[i] * msPerWeightUnit;
+                boundaries.push({
+                    startMs: currentMs,
+                    endMs: currentMs + duration,
+                    spanId: `md-word-${i}`
+                });
+                currentMs += duration;
+            }
+            return boundaries;
         }
 
         async function fetchAndPlayAudio(textToSpeak, buttonElement) {
@@ -153,14 +218,14 @@
             const originalText = buttonElement.innerText;
             buttonElement.innerText = "Processing...";
             buttonElement.disabled = true;
-            buttonElement.classList.add("opacity-50", "cursor-not-allowed");
+
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            currentActiveSpanId = null;
 
             try {
-                // 1. Re-render fresh Markdown and set directions
                 markdownDisplay.innerHTML = marked.parse(textToSpeak === rawText ? rawText : textInput.value);
-                markdownDisplay.setAttribute("dir", isArabicText(textToSpeak) ? "rtl" : "ltr");
-
-                // 2. Inject SPAN tags into the rendered HTML for highlighting
+                const isRTL = isArabicText(textToSpeak);
+                markdownDisplay.setAttribute("dir", isRTL ? "rtl" : "ltr");
                 wrapWordsInMarkdownDisplay();
 
                 const response = await fetch(API_URL, {
@@ -169,7 +234,7 @@
                     body: JSON.stringify({
                         text: textToSpeak,
                         voice: voiceSelect.value,
-                        rate: rateSelect.value
+                        rate: "+0%"
                     })
                 });
 
@@ -177,72 +242,81 @@
 
                 const data = await response.json();
                 audioPlayer.src = "data:audio/mp3;base64," + data.audio;
-                currentBoundaries = data.boundaries || [];
-                estimatedBoundaries = [];
 
-                audioContainer.classList.remove('hidden');
-
-                // 3. Fallback Algorithm: Calculate timing if API returns empty boundaries
+                // Magic happens here: Wait for metadata to know total length
                 audioPlayer.onloadedmetadata = () => {
-                    if (currentBoundaries.length === 0 && wordElementsCount > 0) {
-                        const totalDurationMs = audioPlayer.duration * 1000;
-                        const msPerWord = totalDurationMs / wordElementsCount;
+                    const rawBoundaries = data.boundaries || [];
 
-                        for (let i = 0; i < wordElementsCount; i++) {
-                            estimatedBoundaries.push({
-                                startMs: i * msPerWord,
-                                endMs: (i + 1) * msPerWord
-                            });
-                        }
+                    if (rawBoundaries.length > 0) {
+                        currentBoundaries = alignBoundariesToSpans(rawBoundaries);
+                    } else {
+                        // Flawless automatic fallback
+                        const totalDurationMs = audioPlayer.duration * 1000;
+                        currentBoundaries = generateAutomatedWeightedBoundaries(totalDurationMs);
                     }
+
+                    audioPlayer.playbackRate = parseFloat(rateSelect.value);
                     audioPlayer.play();
                 };
 
+                audioContainer.classList.remove('hidden');
+
             } catch (error) {
                 console.error("Error:", error);
-                alert("Error connecting to the server. Make sure FastAPI is running.");
+                alert("Error connecting to the server.");
             } finally {
                 buttonElement.innerText = originalText;
                 buttonElement.disabled = false;
-                buttonElement.classList.remove("opacity-50", "cursor-not-allowed");
             }
         }
 
-        // Core highlighting logic tied to audio playback
-        audioPlayer.addEventListener('timeupdate', () => {
+        // Precision 60FPS Render Engine
+        function syncHighlightEngine() {
+            if (audioPlayer.paused || audioPlayer.ended || currentBoundaries.length === 0) return;
+
             const currentTimeMs = audioPlayer.currentTime * 1000;
-            const useEstimated = currentBoundaries.length === 0;
-            const boundariesToUse = useEstimated ? estimatedBoundaries : currentBoundaries;
+            let activeSpanId = null;
 
-            if (boundariesToUse.length === 0) return;
-
-            // Loop through the maximum possible words
-            const maxWords = useEstimated ? wordElementsCount : currentBoundaries.length;
-
-            for (let i = 0; i < maxWords; i++) {
-                const boundary = boundariesToUse[i];
-                if (!boundary) continue;
-
-                // API boundaries use 10,000 unit offsets. Estimated boundaries use direct MS.
-                const startMs = useEstimated ? boundary.startMs : (boundary.offset / 10000);
-                const endMs = useEstimated ? boundary.endMs : ((boundary.offset + boundary.duration) / 10000);
-
-                const wordSpan = document.getElementById(`md-word-${i}`);
-
-                if (wordSpan) {
-                    if (currentTimeMs >= startMs && currentTimeMs <= endMs) {
-                        wordSpan.classList.add('bg-blue-500', 'text-white', 'shadow-sm');
-                    } else {
-                        wordSpan.classList.remove('bg-blue-500', 'text-white', 'shadow-sm');
-                    }
+            for (let i = 0; i < currentBoundaries.length; i++) {
+                if (currentTimeMs >= currentBoundaries[i].startMs && currentTimeMs <= currentBoundaries[i].endMs) {
+                    activeSpanId = currentBoundaries[i].spanId;
+                    break;
                 }
             }
+
+            if (activeSpanId !== currentActiveSpanId) {
+                if (currentActiveSpanId) {
+                    const oldSpan = document.getElementById(currentActiveSpanId);
+                    if (oldSpan) oldSpan.className = "transition-all duration-75 ease-in-out px-1 rounded inline-block text-gray-800";
+                }
+
+                if (activeSpanId) {
+                    const newSpan = document.getElementById(activeSpanId);
+                    if (newSpan) {
+                        newSpan.className = "transition-all duration-75 ease-in-out px-1 rounded inline-block bg-blue-600 text-white shadow-md scale-110 relative z-10";
+
+                        const container = markdownDisplay;
+                        const scrollPos = newSpan.offsetTop - (container.clientHeight / 2) + (newSpan.clientHeight / 2);
+                        container.scrollTo({ top: scrollPos, behavior: 'smooth' });
+                    }
+                }
+                currentActiveSpanId = activeSpanId;
+            }
+
+            animationFrameId = requestAnimationFrame(syncHighlightEngine);
+        }
+
+        audioPlayer.addEventListener('play', () => {
+            animationFrameId = requestAnimationFrame(syncHighlightEngine);
+        });
+
+        audioPlayer.addEventListener('pause', () => {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
         });
 
         generateBtn.addEventListener('click', () => {
             const rawText = textInput.value;
-            const plainText = stripMarkdown(rawText);
-            fetchAndPlayAudio(plainText, generateBtn);
+            fetchAndPlayAudio(stripMarkdown(rawText), generateBtn);
         });
 
         previewBtn.addEventListener('click', () => {
@@ -250,8 +324,12 @@
             const previewText = isArabic
                 ? "مرحباً، أنا أختبر نبرة هذا الصوت الآن."
                 : "Hello, I am testing the tone of this voice right now.";
-            textInput.value = previewText; // Show the preview text in the box
+            textInput.value = previewText;
             fetchAndPlayAudio(previewText, previewBtn);
+        });
+
+        rateSelect.addEventListener('change', () => {
+            audioPlayer.playbackRate = parseFloat(rateSelect.value);
         });
     </script>
 </body>

@@ -1,0 +1,15 @@
+project_root/
+├── backend/
+│   ├── main.py
+│   ├── schemas.py
+│   ├── services.py
+│   └── routers.py
+└── frontend/
+    ├── index.html
+    ├── css/
+    │   └── style.css
+    └── js/
+        ├── api.js
+        ├── textProcessor.js
+        ├── audioEngine.js
+        └── main.js

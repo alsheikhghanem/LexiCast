@@ -1,0 +1,25 @@
+.prose :not(pre) > code::before {
+    content: none !important;
+}
+
+.prose :not(pre) > code::after {
+    content: none !important;
+}
+
+.prose :not(pre) > code {
+    color: #be185d;
+    background-color: #fdf2f8;
+    padding: 0.15rem 0.35rem;
+    border-radius: 0.375rem;
+    font-weight: 600;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+    direction: ltr !important;
+    text-align: left !important;
+}
+
+.prose pre, .prose pre code {
+    direction: ltr !important;
+    text-align: left !important;
+}

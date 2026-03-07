@@ -4,24 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="47169846-bb9b-4424-8628-727954ea991a" name="Changes" comment="chore: resolve 'marked' unresolved variable IDE warning using JSDoc type definitions">
-      <change afterPath="$PROJECT_DIR$/architecture.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/logger.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/main.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/routers.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/schemas.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/services.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/css/style.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/js/api.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/js/audioEngine.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/js/main.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/js/textProcessor.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/run_project.py" afterDir="false" />
+    <list default="true" id="47169846-bb9b-4424-8628-727954ea991a" name="Changes" comment="Clean Architecture &amp; Logging System">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/services.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/js/audioEngine.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/js/audioEngine.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/js/main.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/js/main.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/js/textProcessor.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/js/textProcessor.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -134,7 +122,7 @@
       <updated>1772804982353</updated>
       <workItem from="1772804983466" duration="88000" />
       <workItem from="1772805240185" duration="108000" />
-      <workItem from="1772805353110" duration="27410000" />
+      <workItem from="1772805353110" duration="31773000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -232,7 +220,15 @@
       <option name="project" value="LOCAL" />
       <updated>1772844514600</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="Clean Architecture &amp; Logging System">
+      <option name="closed" value="true" />
+      <created>1772848908714</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1772848908714</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -251,7 +247,8 @@
     <MESSAGE value="delete file book.txt" />
     <MESSAGE value="feat: implement language-aware preview text based on selected TTS voice" />
     <MESSAGE value="chore: resolve 'marked' unresolved variable IDE warning using JSDoc type definitions" />
-    <option name="LAST_COMMIT_MESSAGE" value="chore: resolve 'marked' unresolved variable IDE warning using JSDoc type definitions" />
+    <MESSAGE value="Clean Architecture &amp; Logging System" />
+    <option name="LAST_COMMIT_MESSAGE" value="Clean Architecture &amp; Logging System" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/AudiobookProject$main.coverage" NAME="main Coverage Results" MODIFIED="1772808066663" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />

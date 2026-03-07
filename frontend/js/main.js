@@ -17,33 +17,39 @@ const elements = {
 
 const api = new ApiService(API_BASE_URL);
 const textProcessor = new TextProcessor();
-const audioEngine = new AudioEngine(elements.audioPlayer);
+const audioEngine = new AudioEngine(elements.audioPlayer, api);
 
-/**
- * @typedef {Object} Voice
- * @property {string} name
- * @property {string} gender
- * @property {string} locale
- */
+audioEngine.onPlaybackStart = () => {
+    elements.generateBtn.innerText = "Stop Playback";
+    elements.generateBtn.classList.replace('bg-green-600', 'bg-red-600');
+    elements.generateBtn.classList.replace('hover:bg-green-700', 'hover:bg-red-700');
+    elements.generateBtn.disabled = false;
+    elements.audioContainer.classList.remove('hidden');
+};
 
-/**
- * @typedef {Object} TTSResponse
- * @property {string} audio
- * @property {Array<{offset: number, duration: number, text: string}>} boundaries
- */
+audioEngine.onPlaybackEnd = () => {
+    elements.generateBtn.innerText = "Generate & Play";
+    elements.generateBtn.classList.replace('bg-red-600', 'bg-green-600');
+    elements.generateBtn.classList.replace('hover:bg-red-700', 'hover:bg-green-700');
+    elements.generateBtn.disabled = false;
+};
 
 document.addEventListener('DOMContentLoaded', async () => {
     elements.generateBtn.disabled = true;
     elements.previewBtn.disabled = true;
     try {
-        /** @type {{voices: Voice[]}} */
-        const data = await api.getVoices();
+        const responseData = await api.getVoices();
+        const voicesArray = responseData['voices'] || [];
 
         elements.voiceSelect.innerHTML = '';
-        data.voices.forEach(v => {
+        voicesArray.forEach(voiceItem => {
+            const voiceName = voiceItem['name'] || '';
+            const voiceGender = voiceItem['gender'] || '';
+            const voiceLocale = voiceItem['locale'] || '';
+
             const opt = document.createElement('option');
-            opt.value = v.name;
-            opt.textContent = `${v.name} (${v.gender} | ${v.locale})`;
+            opt.value = voiceName;
+            opt.textContent = `${voiceName} (${voiceGender} | ${voiceLocale})`;
             elements.voiceSelect.appendChild(opt);
         });
 
@@ -59,56 +65,47 @@ elements.textInput.addEventListener('input', () => {
 });
 
 elements.rateSelect.addEventListener('change', () => {
-    audioEngine.setPlaybackRate(elements.rateSelect.value);
+    audioEngine.rate = elements.rateSelect.value;
 });
 
-async function processAndPlay(buttonElement) {
+async function processAndPlay() {
+    if (audioEngine.isPlaying) {
+        audioEngine.stop();
+        audioEngine.onPlaybackEnd();
+        return;
+    }
+
     const rawText = elements.textInput.value;
     if (!rawText.trim()) return;
 
-    const originalText = buttonElement.innerText;
-    buttonElement.innerText = "Processing...";
-    buttonElement.disabled = true;
+    elements.generateBtn.innerText = "Initializing...";
+    elements.generateBtn.disabled = true;
 
-    audioEngine.resetHighlighting();
+    textProcessor.renderLivePreview(rawText, elements.markdownDisplay);
+    const chunks = textProcessor.buildMemoryMapAndDOM(elements.markdownDisplay);
 
-    try {
-        textProcessor.renderLivePreview(rawText, elements.markdownDisplay);
-        const finalSpokenText = textProcessor.buildMemoryMapAndDOM(elements.markdownDisplay);
-
-        /** @type {TTSResponse} */
-        const data = await api.generateTTS({
-            text: finalSpokenText,
-            voice: elements.voiceSelect.value,
-            rate: elements.rateSelect.value
-        });
-
-        audioEngine.setAudioData(
-            data.audio,
-            data.boundaries,
-            textProcessor.spokenWordsList,
-            textProcessor.spokenToSpanMap,
-            elements.rateSelect.value
-        );
-
-        elements.audioContainer.classList.remove('hidden');
-    } catch (error) {
-        console.error("Processing Error:", error);
-    } finally {
-        buttonElement.innerText = originalText;
-        buttonElement.disabled = false;
+    if (chunks.length === 0) {
+        audioEngine.onPlaybackEnd();
+        return;
     }
+
+    await audioEngine.startQueue(chunks, elements.voiceSelect.value, elements.rateSelect.value);
 }
 
 elements.generateBtn.addEventListener('click', async () => {
-    await processAndPlay(elements.generateBtn);
+    await processAndPlay();
 });
 
 elements.previewBtn.addEventListener('click', async () => {
+    if (audioEngine.isPlaying) {
+        audioEngine.stop();
+        audioEngine.onPlaybackEnd();
+    }
+
     elements.textInput.value = elements.voiceSelect.value.includes('ar-')
         ? "مرحباً، هذا اختبار حي للتحقق من الـ {{Audio System::أُودْيُو سِيسْتِمْ}} والتأكد من تظليل الـ {{Words::وُورْدْز}} بنجاح."
         : "Hello, this is a live test to verify the audio system and check the highlighted words successfully.";
 
     elements.textInput.dispatchEvent(new Event('input'));
-    await processAndPlay(elements.previewBtn);
+    await processAndPlay();
 });

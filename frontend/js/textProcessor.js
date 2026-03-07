@@ -1,8 +1,7 @@
 export class TextProcessor {
     constructor() {
         this.wordElementsCount = 0;
-        this.spokenWordsList = [];
-        this.spokenToSpanMap = [];
+        this.chunks = [];
     }
 
     isArabicText(text) {
@@ -43,8 +42,16 @@ export class TextProcessor {
 
     buildMemoryMapAndDOM(displayElement) {
         this.wordElementsCount = 0;
-        this.spokenWordsList = [];
-        this.spokenToSpanMap = [];
+        this.chunks = [];
+        let currentChunk = { words: [], spanIds: [], text: "" };
+
+        const flushChunk = () => {
+            if (currentChunk.words.length > 0) {
+                currentChunk.text = currentChunk.words.join(" ").replace(/\s+/g, ' ').trim();
+                this.chunks.push(currentChunk);
+                currentChunk = { words: [], spanIds: [], text: "" };
+            }
+        };
 
         const walk = (node) => {
             if (node.nodeType === Node.ELEMENT_NODE && (node.tagName.toUpperCase() === 'PRE' || node.tagName.toUpperCase() === 'TABLE')) {
@@ -59,10 +66,14 @@ export class TextProcessor {
                 const phoneticText = node.getAttribute('data-phonetic');
                 const phoneticWords = phoneticText.split(/\s+/).filter(w => w.trim().length > 0);
 
+                let hasPunctuation = false;
                 phoneticWords.forEach(pw => {
-                    this.spokenWordsList.push(pw);
-                    this.spokenToSpanMap.push(spanId);
+                    currentChunk.words.push(pw);
+                    currentChunk.spanIds.push(spanId);
+                    if (/[.,!?؛،:\n\r]/.test(pw)) hasPunctuation = true;
                 });
+
+                if (hasPunctuation || currentChunk.words.length >= 15) flushChunk();
                 return;
             }
 
@@ -82,8 +93,12 @@ export class TextProcessor {
                         span.textContent = word;
                         fragment.appendChild(span);
 
-                        this.spokenWordsList.push(word.trim());
-                        this.spokenToSpanMap.push(spanId);
+                        currentChunk.words.push(word.trim());
+                        currentChunk.spanIds.push(spanId);
+
+                        if (/[.,!?؛،:\n\r]/.test(word) || currentChunk.words.length >= 15) {
+                            flushChunk();
+                        }
                     } else {
                         fragment.appendChild(document.createTextNode(word));
                     }
@@ -95,6 +110,8 @@ export class TextProcessor {
         };
 
         Array.from(displayElement.childNodes).forEach(walk);
-        return this.spokenWordsList.join(" ").replace(/\s+/g, ' ').trim();
+        flushChunk();
+
+        return this.chunks.filter(c => c.text.length > 0);
     }
 }

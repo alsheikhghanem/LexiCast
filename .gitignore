@@ -4,9 +4,9 @@ venv/
 env/
 
 # IDEs (like PyCharm or WebStorm)
-.idea/httpRequests/
+#.idea/httpRequests/
 # Note: Developers usually ignore the entire .idea folder by adding:
-# .idea/
+.idea/
 
 # Reports and Logs (Requested files)
 report.txt

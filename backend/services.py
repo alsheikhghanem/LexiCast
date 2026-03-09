@@ -12,7 +12,8 @@ tts_semaphore = asyncio.Semaphore(3)
 
 
 class TTSService:
-    async def get_filtered_voices(self):
+    @staticmethod
+    async def get_filtered_voices():
         for attempt in range(3):
             try:
                 voices = await asyncio.wait_for(edge_tts.list_voices(), timeout=10.0)
@@ -29,7 +30,8 @@ class TTSService:
                 await asyncio.sleep(2)
         return []
 
-    async def generate_audio_and_boundaries(self, text: str, voice: str, rate: str):
+    @staticmethod
+    async def generate_audio_and_boundaries(text: str, voice: str, rate: str):
         clean_text = text.strip()
         if not clean_text:
             return {"cache_key": "", "boundaries": []}
@@ -44,7 +46,7 @@ class TTSService:
                 with open(boundaries_path, "r", encoding="utf-8") as f:
                     boundaries = json.load(f)
                 return {"cache_key": cache_key, "boundaries": boundaries}
-            except Exception as e:
+            except (OSError, json.JSONDecodeError):
                 pass
 
         async with tts_semaphore:

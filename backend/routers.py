@@ -30,7 +30,7 @@ async def generate_tts(request: TTSRequest, service: TTSService = Depends(get_tt
     try:
         result = await service.generate_audio_and_boundaries(request.text, request.voice, request.rate)
         return result
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Audio generation failed.")
 
 

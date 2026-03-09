@@ -4,58 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Text Studio</title>
-    <script>
-        window.addEventListener('DOMContentLoaded', () => {
-        });
-    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="css/style.css?v=101">
-    <style>
-        body {
-            transition: background-color 0.5s ease;
-        }
-
-        #bottom-player {
-            transition: opacity 0.4s ease;
-        }
-
-        span[id^="md-word-"] {
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            display: inline-block;
-        }
-
-        /* noinspection CssUnusedSymbol */
-        body.focus-mode {
-            background-color: #030305 !important;
-        }
-
-        /* noinspection CssUnusedSymbol */
-        body.focus-mode #bottom-player {
-            opacity: 0.1 !important;
-        }
-
-        /* noinspection CssUnusedSymbol */
-        body.focus-mode #bottom-player:hover,
-        /* noinspection CssUnusedSymbol */
-        body.focus-mode #bottom-player.active-hover {
-            opacity: 1 !important;
-        }
-
-        /* noinspection CssUnusedSymbol */
-        body.focus-mode #markdown-display span[id^="md-word-"]:not(.word-glow) {
-            opacity: 0.15 !important;
-            filter: blur(2px) !important;
-        }
-
-        /* noinspection CssUnusedSymbol */
-        body.focus-mode #markdown-display .word-glow {
-            opacity: 1 !important;
-            filter: blur(0) !important;
-            transform: scale(1.15) translateY(-3px) !important;
-        }
-    </style>
 </head>
 <body class="antialiased overflow-hidden">
 
@@ -141,13 +93,6 @@
 </footer>
 
 <audio id="audio-player" class="hidden" crossorigin="anonymous"></audio>
-<script>
-    window.addEventListener('load', function () {
-        if (window['lucide']) {
-            window['lucide']['createIcons']();
-        }
-    });
-</script>
 <script type="module" src="js/main.js?v=101"></script>
 </body>
 </html>

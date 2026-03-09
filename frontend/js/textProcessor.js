@@ -107,7 +107,6 @@ export class TextProcessor {
         Array.from(displayElement.childNodes).forEach(walk);
         flushChunk();
 
-        const finalChunks = this.chunks.filter(c => c.text.trim().length > 0 && /[a-zA-Z\u0600-\u06FF0-9]/.test(c.text));
-        return finalChunks;
+        return this.chunks.filter(c => c.text.trim().length > 0 && /[a-zA-Z\u0600-\u06FF0-9]/.test(c.text));
     }
 }

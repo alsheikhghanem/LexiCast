@@ -205,6 +205,9 @@ async function processAndPlay(spanId = null) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    if (window['lucide']) {
+        window['lucide']['createIcons']();
+    }
     try {
         const data = await api.getVoices();
         const voices = data['voices'] || [];
@@ -255,7 +258,7 @@ elements.btnMainPlay.onclick = async () => {
                 trackProgress();
             } else {
                 if (audioEngine.onPlaybackStart) audioEngine.onPlaybackStart();
-                audioEngine.playNextChunk();
+                await audioEngine.playNextChunk();
             }
         }
         return;

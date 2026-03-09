@@ -163,13 +163,14 @@ body.focus-mode #bottom-player {
     opacity: 0.1;
 }
 
-body.focus-mode #bottom-player:hover {
+body.focus-mode #bottom-player:hover,
+body.focus-mode #bottom-player.active-hover {
     opacity: 1;
 }
 
 body.focus-mode #markdown-display span[id^="md-word-"]:not(.word-glow) {
-    opacity: 0.25;
-    filter: blur(0.7px);
+    opacity: 0.15;
+    filter: blur(2px);
 }
 
 body.focus-mode #markdown-display .word-glow {

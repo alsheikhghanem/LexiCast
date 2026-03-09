@@ -49,8 +49,8 @@ export class AudioEngine {
     startVisualizer() {
         if (!this.canvas) return;
         if (!this.audioCtx) {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            this.audioCtx = new AudioContext();
+            const AudioContextClass = window.AudioContext || window['webkitAudioContext'];
+            this.audioCtx = new AudioContextClass();
             this.analyser = this.audioCtx.createAnalyser();
             this.source = this.audioCtx.createMediaElementSource(this.player);
             this.source.connect(this.analyser);
@@ -206,6 +206,7 @@ export class AudioEngine {
         chunk.fetchPromise = (async () => {
             chunk.isFetching = true;
             for (let i = 1; i <= retries; i++) {
+                let hasError = false;
                 try {
                     if (!chunk.cacheKey) {
                         const data = await this.api.generateTTS({text: chunk.text, voice: this.voice, rate: this.rate});
@@ -213,26 +214,36 @@ export class AudioEngine {
                         chunk.apiBoundaries = data['boundaries'];
                     }
 
-                    if (!chunk.cacheKey || chunk.cacheKey === "ERROR") throw new Error("No cache key");
+                    if (!chunk.cacheKey || chunk.cacheKey === "ERROR") {
+                        hasError = true;
+                    } else {
+                        let audioBlob = await this.getFromDB(chunk.cacheKey);
 
-                    let audioBlob = await this.getFromDB(chunk.cacheKey);
-
-                    if (!audioBlob) {
-                        const audioRes = await fetch(`${this.api.baseUrl}/audio/${chunk.cacheKey}`);
-                        if (!audioRes.ok) throw new Error("Audio fetch failed");
-                        audioBlob = await audioRes.blob();
-                        await this.saveToDB(chunk.cacheKey, audioBlob);
+                        if (!audioBlob) {
+                            const audioRes = await fetch(`${this.api.baseUrl}/audio/${chunk.cacheKey}`);
+                            if (!audioRes.ok) {
+                                hasError = true;
+                            } else {
+                                audioBlob = await audioRes.blob();
+                                await this.saveToDB(chunk.cacheKey, audioBlob);
+                            }
+                        }
                     }
-
-                    chunk.audioReady = true;
-                    chunk.isFetching = false;
-                    return;
                 } catch (e) {
+                    hasError = true;
+                }
+
+                if (hasError) {
                     if (i === retries) {
                         chunk.cacheKey = "ERROR";
                         chunk.isFetching = false;
+                    } else {
+                        await new Promise(r => setTimeout(r, 1000 * i));
                     }
-                    await new Promise(r => setTimeout(r, 1000 * i));
+                } else {
+                    chunk.audioReady = true;
+                    chunk.isFetching = false;
+                    break;
                 }
             }
         })();
@@ -272,7 +283,12 @@ export class AudioEngine {
 
         try {
             const blob = await this.getFromDB(chunk.cacheKey);
-            if (!blob) throw new Error("Blob missing");
+
+            if (!(blob instanceof Blob)) {
+                this.currentIndex++;
+                setTimeout(() => this.playNextChunk(), 50);
+                return;
+            }
 
             if (this.currentBlobUrl) {
                 URL.revokeObjectURL(this.currentBlobUrl);

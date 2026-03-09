@@ -276,8 +276,8 @@ elements.markdownDisplay.onclick = async (e) => {
 elements.previewBtn.onclick = async () => {
     audioEngine.hardReset();
     elements.textInput.value = elements.voiceSelect.value.includes('ar-')
-        ? "# تجربة حية\nمرحباً بك في {{Studio::سْتُودْيُو}} الذكاء الاصطناعي."
-        : "# Live Preview\nWelcome to the AI {{Studio::Studio}}.";
+        ? "# تجربة حية\nمرحباً بك في {{LexiCast::لِيكْسِي كَاسْت}} للذكاء الاصطناعي."
+        : "# Live Preview\nWelcome to {{LexiCast::Lexi Cast}}.";
     updatePreviewAndChunks();
     checkInputState();
     await processAndPlay();

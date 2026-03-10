@@ -52,28 +52,48 @@ const cursorTrail = document.createElement('div');
 cursorDot.className = 'cursor-dot';
 cursorTrail.className = 'cursor-trail';
 
+let isCursorHovering = false;
+let cursorHoverTarget = null;
+
 if (window.matchMedia("(pointer: fine)").matches) {
     document.body.append(cursorDot, cursorTrail);
-    let mX = 0, mY = 0, tX = 0, tY = 0;
+    let mX = window.innerWidth / 2, mY = window.innerHeight / 2;
+    let tX = mX, tY = mY;
+
     document.addEventListener('mousemove', e => {
-        mX = e.clientX;
-        mY = e.clientY;
-        cursorDot.style.left = `${mX}px`;
-        cursorDot.style.top = `${mY}px`;
+        if (!isCursorHovering) {
+            mX = e.clientX;
+            mY = e.clientY;
+        } else if (cursorHoverTarget) {
+            const rect = cursorHoverTarget.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            mX = e.clientX + (centerX - e.clientX) * 0.35;
+            mY = e.clientY + (centerY - e.clientY) * 0.35;
+        }
+        cursorDot.style.transform = `translate3d(${mX}px, ${mY}px, 0) translate(-50%, -50%)`;
     });
+
     (function anim() {
         tX += (mX - tX) * 0.15;
         tY += (mY - tY) * 0.15;
-        cursorTrail.style.left = `${tX}px`;
-        cursorTrail.style.top = `${tY}px`;
+        cursorTrail.style.transform = `translate3d(${tX}px, ${tY}px, 0) translate(-50%, -50%)`;
         requestAnimationFrame(anim);
     })();
 }
 
 function updateCursorInteractions() {
     document.querySelectorAll('button, select, span[id^="md-word-"], textarea, #progress-container').forEach(el => {
-        el.onmouseenter = () => document.body.classList.add('hover-active');
-        el.onmouseleave = () => document.body.classList.remove('hover-active');
+        el.onmouseenter = () => {
+            document.body.classList.add('hover-active');
+            isCursorHovering = true;
+            cursorHoverTarget = el;
+        };
+        el.onmouseleave = () => {
+            document.body.classList.remove('hover-active');
+            isCursorHovering = false;
+            cursorHoverTarget = null;
+        };
     });
 }
 

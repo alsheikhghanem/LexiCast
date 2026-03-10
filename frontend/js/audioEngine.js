@@ -13,6 +13,7 @@ export class AudioEngine {
         this.onPlaybackStart = null;
         this.onPlaybackEnd = null;
         this.onPlayStateChange = null;
+        this.needsFadeIn = false;
 
         this.db = null;
         this.initDB();
@@ -111,10 +112,23 @@ export class AudioEngine {
         return this.currentAudioBuffer !== null;
     }
 
+    async fadeOut(durationMs = 200) {
+        if (!this.isPlaying || !this.masterGain) return;
+        const curr = this.audioCtx.currentTime;
+        this.masterGain.gain.cancelScheduledValues(curr);
+        this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, curr);
+        this.masterGain.gain.linearRampToValueAtTime(0.001, curr + (durationMs / 1000));
+        await new Promise(r => setTimeout(r, durationMs));
+    }
+
     pausePlayback() {
         if (!this.isPlaying) return;
         this.isPlaying = false;
         this.pauseOffset += (this.audioCtx.currentTime - this.playbackStartTime);
+
+        this.masterGain.gain.cancelScheduledValues(this.audioCtx.currentTime);
+        this.masterGain.gain.setValueAtTime(1, this.audioCtx.currentTime);
+
         if (this.currentSource) {
             this.currentSource.onended = null;
             this.currentSource.stop();
@@ -130,19 +144,30 @@ export class AudioEngine {
         if (this.isPlaying || !this.currentAudioBuffer) return;
         this.isPlaying = true;
         this.startVisualizer();
-        this.playBuffer(this.currentAudioBuffer, this.pauseOffset);
+        this.needsFadeIn = true;
+        this.playBuffer(this.currentAudioBuffer, this.pauseOffset, this.needsFadeIn);
+        this.needsFadeIn = false;
         if (this.onPlayStateChange) this.onPlayStateChange(true);
         this.startHighlightEngine();
         this.startCameraEngine();
     }
 
-    playBuffer(buffer, offset = 0) {
+    playBuffer(buffer, offset = 0, fadeIn = false) {
         this.currentSource = this.audioCtx.createBufferSource();
         this.currentSource.buffer = buffer;
         this.currentSource.connect(this.masterGain);
 
         this.playbackStartTime = this.audioCtx.currentTime;
         this.currentBufferDuration = buffer.duration;
+
+        if (fadeIn) {
+            this.masterGain.gain.cancelScheduledValues(this.playbackStartTime);
+            this.masterGain.gain.setValueAtTime(0.001, this.playbackStartTime);
+            this.masterGain.gain.linearRampToValueAtTime(1, this.playbackStartTime + 0.2);
+        } else {
+            this.masterGain.gain.cancelScheduledValues(this.playbackStartTime);
+            this.masterGain.gain.setValueAtTime(1, this.playbackStartTime);
+        }
 
         this.currentSource.onended = () => {
             if (this.isPlaying) {
@@ -258,12 +283,15 @@ export class AudioEngine {
         let targetIdx = this.queue.findIndex(q => q.spanIds.includes(spanId));
         if (targetIdx === -1) return;
 
+        if (this.isPlaying) await this.fadeOut(200);
+
         this.pausePlayback();
         this.resetHighlighting();
 
         this.currentIndex = targetIdx;
         this.targetSpanToSeek = spanId;
         this.isPlaying = true;
+        this.needsFadeIn = true;
 
         if (this.onPlaybackStart) this.onPlaybackStart();
         await this.playNextChunk();
@@ -274,12 +302,15 @@ export class AudioEngine {
         const targetIndex = Math.floor(percent * this.queue.length);
         const chunkIndex = Math.min(targetIndex, this.queue.length - 1);
 
+        if (this.isPlaying) await this.fadeOut(200);
+
         this.pausePlayback();
         this.resetHighlighting();
 
         this.currentIndex = chunkIndex;
         this.targetSpanToSeek = null;
         this.isPlaying = true;
+        this.needsFadeIn = true;
 
         if (this.onPlaybackStart) this.onPlaybackStart();
         await this.playNextChunk();
@@ -408,7 +439,8 @@ export class AudioEngine {
 
             if (this.onPlayStateChange) this.onPlayStateChange(true);
 
-            this.playBuffer(this.currentAudioBuffer, startOffset);
+            this.playBuffer(this.currentAudioBuffer, startOffset, this.needsFadeIn);
+            this.needsFadeIn = false;
             this.startHighlightEngine();
             this.startCameraEngine();
 

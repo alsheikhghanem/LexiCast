@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="css/style.css?v=103">
+    <link rel="stylesheet" href="css/style.css?v=101">
 </head>
 <body class="antialiased overflow-hidden">
 
@@ -22,8 +22,7 @@
               placeholder="Write something..."></textarea>
 </aside>
 
-<main class="w-full h-screen pt-12 pb-44 px-12 md:px-32 overflow-y-auto relative">
-    <div id="floating-highlighter"></div>
+<main class="w-full h-screen pt-12 pb-44 px-12 md:px-32 overflow-y-auto scroll-smooth">
     <div id="markdown-display" class="prose max-w-4xl mx-auto text-xl md:text-2xl leading-relaxed text-[#f4f3ee]"></div>
 </main>
 
@@ -93,6 +92,7 @@
 
 </footer>
 
-<script type="module" src="js/main.js?v=103"></script>
+<audio id="audio-player" class="hidden" crossorigin="anonymous"></audio>
+<script type="module" src="js/main.js?v=101"></script>
 </body>
 </html>

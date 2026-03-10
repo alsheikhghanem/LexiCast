@@ -11,6 +11,7 @@ const elements = {
     markdownDisplay: document.getElementById('markdown-display'),
     voiceSelect: document.getElementById('voice-select'),
     rateSelect: document.getElementById('rate-select'),
+    audioPlayer: document.getElementById('audio-player'),
     btnToggleInput: document.getElementById('btn-toggle-input'),
     btnCloseInput: document.getElementById('btn-close-input'),
     panelInput: document.getElementById('panel-input'),
@@ -33,7 +34,7 @@ const elements = {
 
 const api = new ApiService(API_BASE_URL);
 const textProcessor = new TextProcessor();
-const audioEngine = new AudioEngine(api);
+const audioEngine = new AudioEngine(elements.audioPlayer, api);
 let currentChunks = [];
 let progressTrackerId = null;
 
@@ -52,48 +53,28 @@ const cursorTrail = document.createElement('div');
 cursorDot.className = 'cursor-dot';
 cursorTrail.className = 'cursor-trail';
 
-let isCursorHovering = false;
-let cursorHoverTarget = null;
-
 if (window.matchMedia("(pointer: fine)").matches) {
     document.body.append(cursorDot, cursorTrail);
-    let mX = window.innerWidth / 2, mY = window.innerHeight / 2;
-    let tX = mX, tY = mY;
-
+    let mX = 0, mY = 0, tX = 0, tY = 0;
     document.addEventListener('mousemove', e => {
-        if (!isCursorHovering) {
-            mX = e.clientX;
-            mY = e.clientY;
-        } else if (cursorHoverTarget) {
-            const rect = cursorHoverTarget.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            mX = e.clientX + (centerX - e.clientX) * 0.35;
-            mY = e.clientY + (centerY - e.clientY) * 0.35;
-        }
-        cursorDot.style.transform = `translate3d(${mX}px, ${mY}px, 0) translate(-50%, -50%)`;
+        mX = e.clientX;
+        mY = e.clientY;
+        cursorDot.style.left = `${mX}px`;
+        cursorDot.style.top = `${mY}px`;
     });
-
     (function anim() {
         tX += (mX - tX) * 0.15;
         tY += (mY - tY) * 0.15;
-        cursorTrail.style.transform = `translate3d(${tX}px, ${tY}px, 0) translate(-50%, -50%)`;
+        cursorTrail.style.left = `${tX}px`;
+        cursorTrail.style.top = `${tY}px`;
         requestAnimationFrame(anim);
     })();
 }
 
 function updateCursorInteractions() {
     document.querySelectorAll('button, select, span[id^="md-word-"], textarea, #progress-container').forEach(el => {
-        el.onmouseenter = () => {
-            document.body.classList.add('hover-active');
-            isCursorHovering = true;
-            cursorHoverTarget = el;
-        };
-        el.onmouseleave = () => {
-            document.body.classList.remove('hover-active');
-            isCursorHovering = false;
-            cursorHoverTarget = null;
-        };
+        el.onmouseenter = () => document.body.classList.add('hover-active');
+        el.onmouseleave = () => document.body.classList.remove('hover-active');
     });
 }
 
@@ -189,19 +170,19 @@ audioEngine.onPlaybackEnd = () => {
     if (progressTrackerId) cancelAnimationFrame(progressTrackerId);
 };
 
-audioEngine.onPlayStateChange = (isPlaying) => {
-    if (isPlaying) {
-        elements.wrapperLoading.classList.add('hidden');
-        elements.wrapperPlay.classList.add('hidden');
-        elements.wrapperPause.classList.remove('hidden');
-        elements.btnMainPlay.style.backgroundColor = '#ef4444';
-    } else {
-        elements.wrapperPause.classList.add('hidden');
-        elements.wrapperLoading.classList.add('hidden');
-        elements.wrapperPlay.classList.remove('hidden');
-        elements.btnMainPlay.style.backgroundColor = '#c15f3c';
-    }
-};
+elements.audioPlayer.addEventListener('play', () => {
+    elements.wrapperLoading.classList.add('hidden');
+    elements.wrapperPlay.classList.add('hidden');
+    elements.wrapperPause.classList.remove('hidden');
+    elements.btnMainPlay.style.backgroundColor = '#ef4444';
+});
+
+elements.audioPlayer.addEventListener('pause', () => {
+    elements.wrapperPause.classList.add('hidden');
+    elements.wrapperLoading.classList.add('hidden');
+    elements.wrapperPlay.classList.remove('hidden');
+    elements.btnMainPlay.style.backgroundColor = '#c15f3c';
+});
 
 function checkInputState() {
     const ok = elements.textInput.value.trim().length > 0 && elements.voiceSelect.value;
@@ -268,10 +249,12 @@ elements.btnMainPlay.onclick = async () => {
 
     if (audioEngine.queue.length > 0) {
         if (audioEngine.isPlaying) {
-            audioEngine.pausePlayback();
+            audioEngine.isPlaying = false;
+            elements.audioPlayer.pause();
         } else {
-            if (audioEngine.hasActiveBuffer()) {
-                audioEngine.resumePlayback();
+            audioEngine.isPlaying = true;
+            if (elements.audioPlayer.getAttribute('src')) {
+                elements.audioPlayer.play();
                 trackProgress();
             } else {
                 if (audioEngine.onPlaybackStart) audioEngine.onPlaybackStart();

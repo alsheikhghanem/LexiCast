@@ -11,7 +11,6 @@ const elements = {
     markdownDisplay: document.getElementById('markdown-display'),
     voiceSelect: document.getElementById('voice-select'),
     rateSelect: document.getElementById('rate-select'),
-    audioPlayer: document.getElementById('audio-player'),
     btnToggleInput: document.getElementById('btn-toggle-input'),
     btnCloseInput: document.getElementById('btn-close-input'),
     panelInput: document.getElementById('panel-input'),

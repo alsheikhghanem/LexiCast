@@ -1,0 +1,12 @@
+{
+  "name": "lexicast-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:css": "npx tailwindcss -i css/tailwind.input.css -o css/tailwind.css --minify",
+    "watch:css": "npx tailwindcss -i css/tailwind.input.css -o css/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
+  }
+}

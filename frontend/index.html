@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>LexiCast</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/tailwind.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="css/style.css?v=101">
+    <link rel="stylesheet" href="css/style.css?v=102">
 </head>
 <body class="antialiased overflow-hidden">
 
@@ -22,12 +22,12 @@
               placeholder="Write something..."></textarea>
 </aside>
 
-<main class="w-full h-screen pt-12 pb-44 px-12 md:px-32 overflow-y-auto scroll-smooth">
+<main class="w-full h-screen pt-12 pb-44 px-6 md:px-32 overflow-y-auto scroll-smooth">
     <div id="markdown-display" class="prose max-w-4xl mx-auto text-xl md:text-2xl leading-relaxed text-[#f4f3ee]"></div>
 </main>
 
 <footer id="bottom-player"
-        class="fixed left-1/2 transform -translate-x-1/2 z-50 flex items-center justify-between gap-8 pt-2">
+        class="fixed left-1/2 transform -translate-x-1/2 z-50 flex items-center justify-between gap-4 md:gap-8 pt-2">
 
     <canvas id="audio-visualizer"
             class="absolute top-0 left-0 w-full h-full pointer-events-none rounded-[20px] opacity-40"></canvas>
@@ -37,15 +37,15 @@
         <div id="progress-bar" class="h-full bg-[#c15f3c] w-0 transition-all duration-75"></div>
     </div>
 
-    <div class="flex items-center gap-5 z-20">
+    <div class="flex items-center gap-3 md:gap-5 z-20">
         <button id="btn-toggle-input" data-tooltip="Editor" aria-label="Open Editor"
-                class="text-[#b1ada1] hover:text-[#c15f3c] transition-all">
+                class="text-[#b1ada1] hover:text-[#c15f3c] active:text-[#c15f3c] transition-all">
             <i data-lucide="layout-template" class="w-5 h-5"></i>
         </button>
 
         <div class="relative">
             <button id="btn-toggle-voice" data-tooltip="Voices" aria-label="Select Voice"
-                    class="text-[#b1ada1] hover:text-[#c15f3c] transition-all">
+                    class="text-[#b1ada1] hover:text-[#c15f3c] active:text-[#c15f3c] transition-all">
                 <i data-lucide="users" class="w-5 h-5"></i>
             </button>
             <div id="panel-voice" class="absolute bottom-16 left-0 floating-panel p-5 w-72 hidden-panel rounded-2xl">
@@ -62,10 +62,10 @@
         <span id="wrapper-loading" class="hidden"><i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i></span>
     </button>
 
-    <div class="flex items-center gap-5 z-20">
+    <div class="flex items-center gap-3 md:gap-5 z-20">
         <div class="relative">
             <button id="btn-toggle-speed" data-tooltip="Speed" aria-label="Select playback speed"
-                    class="text-[#b1ada1] hover:text-[#c15f3c] transition-all flex items-center gap-1">
+                    class="text-[#b1ada1] hover:text-[#c15f3c] active:text-[#c15f3c] transition-all flex items-center gap-1">
                 <i data-lucide="zap" class="w-5 h-5"></i>
                 <span id="speed-label" class="text-[10px] font-black uppercase">1.0x</span>
             </button>
@@ -81,18 +81,17 @@
         </div>
 
         <button id="btn-focus-mode" data-tooltip="Focus Mode" aria-label="Cinematic Focus"
-                class="text-[#b1ada1] hover:text-[#c15f3c] transition-all">
+                class="text-[#b1ada1] hover:text-[#c15f3c] active:text-[#c15f3c] transition-all">
             <i data-lucide="scan-eye" class="w-5 h-5"></i>
         </button>
         <button id="preview-btn" data-tooltip="Magic Fill" aria-label="Auto preview"
-                class="text-[#b1ada1] hover:text-[#c15f3c] transition-all">
+                class="text-[#b1ada1] hover:text-[#c15f3c] active:text-[#c15f3c] transition-all">
             <i data-lucide="sparkles" class="w-5 h-5"></i>
         </button>
     </div>
 
 </footer>
 
-<audio id="audio-player" class="hidden" crossorigin="anonymous"></audio>
-<script type="module" src="js/main.js?v=101"></script>
+<script type="module" src="js/main.js?v=102"></script>
 </body>
 </html>

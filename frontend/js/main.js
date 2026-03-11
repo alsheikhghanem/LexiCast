@@ -11,7 +11,6 @@ const elements = {
     markdownDisplay: document.getElementById('markdown-display'),
     voiceSelect: document.getElementById('voice-select'),
     rateSelect: document.getElementById('rate-select'),
-    audioPlayer: document.getElementById('audio-player'),
     btnToggleInput: document.getElementById('btn-toggle-input'),
     btnCloseInput: document.getElementById('btn-close-input'),
     panelInput: document.getElementById('panel-input'),
@@ -34,7 +33,7 @@ const elements = {
 
 const api = new ApiService(API_BASE_URL);
 const textProcessor = new TextProcessor();
-const audioEngine = new AudioEngine(elements.audioPlayer, api);
+const audioEngine = new AudioEngine(api);
 let currentChunks = [];
 let progressTrackerId = null;
 
@@ -59,14 +58,12 @@ if (window.matchMedia("(pointer: fine)").matches) {
     document.addEventListener('mousemove', e => {
         mX = e.clientX;
         mY = e.clientY;
-        cursorDot.style.left = `${mX}px`;
-        cursorDot.style.top = `${mY}px`;
+        cursorDot.style.transform = `translate3d(${mX}px, ${mY}px, 0)`;
     });
     (function anim() {
         tX += (mX - tX) * 0.15;
         tY += (mY - tY) * 0.15;
-        cursorTrail.style.left = `${tX}px`;
-        cursorTrail.style.top = `${tY}px`;
+        cursorTrail.style.transform = `translate3d(${tX}px, ${tY}px, 0)`;
         requestAnimationFrame(anim);
     })();
 }
@@ -99,10 +96,23 @@ function togglePanel(panel) {
     }
 }
 
+let _saveSessionTimer = null;
 function saveSession() {
-    localStorage.setItem('tts_text', elements.textInput.value);
-    localStorage.setItem('tts_voice', elements.voiceSelect.value);
-    localStorage.setItem('tts_rate', elements.rateSelect.value);
+    if (_saveSessionTimer) clearTimeout(_saveSessionTimer);
+    _saveSessionTimer = setTimeout(() => {
+        const doSave = () => {
+            try {
+                localStorage.setItem('tts_text', elements.textInput.value);
+                localStorage.setItem('tts_voice', elements.voiceSelect.value);
+                localStorage.setItem('tts_rate', elements.rateSelect.value);
+            } catch (e) { /* quota exceeded — best effort */ }
+        };
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(doSave, {timeout: 1000});
+        } else {
+            doSave();
+        }
+    }, 300);
 }
 
 function loadSession() {
@@ -170,19 +180,19 @@ audioEngine.onPlaybackEnd = () => {
     if (progressTrackerId) cancelAnimationFrame(progressTrackerId);
 };
 
-elements.audioPlayer.addEventListener('play', () => {
+audioEngine.onPlay = () => {
     elements.wrapperLoading.classList.add('hidden');
     elements.wrapperPlay.classList.add('hidden');
     elements.wrapperPause.classList.remove('hidden');
     elements.btnMainPlay.style.backgroundColor = '#ef4444';
-});
+};
 
-elements.audioPlayer.addEventListener('pause', () => {
+audioEngine.onPause = () => {
     elements.wrapperPause.classList.add('hidden');
     elements.wrapperLoading.classList.add('hidden');
     elements.wrapperPlay.classList.remove('hidden');
     elements.btnMainPlay.style.backgroundColor = '#c15f3c';
-});
+};
 
 function checkInputState() {
     const ok = elements.textInput.value.trim().length > 0 && elements.voiceSelect.value;
@@ -220,10 +230,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+let _inputDebounce = null;
 elements.textInput.oninput = () => {
     audioEngine.hardReset();
-    updatePreviewAndChunks();
     checkInputState();
+    if (_inputDebounce) clearTimeout(_inputDebounce);
+    _inputDebounce = setTimeout(() => {
+        updatePreviewAndChunks();
+    }, 200);
 };
 
 elements.voiceSelect.onchange = async () => {
@@ -249,17 +263,10 @@ elements.btnMainPlay.onclick = async () => {
 
     if (audioEngine.queue.length > 0) {
         if (audioEngine.isPlaying) {
-            audioEngine.isPlaying = false;
-            elements.audioPlayer.pause();
+            audioEngine.pause();
         } else {
-            audioEngine.isPlaying = true;
-            if (elements.audioPlayer.getAttribute('src')) {
-                elements.audioPlayer.play();
-                trackProgress();
-            } else {
-                if (audioEngine.onPlaybackStart) audioEngine.onPlaybackStart();
-                await audioEngine.playNextChunk();
-            }
+            audioEngine.resume();
+            trackProgress();
         }
         return;
     }

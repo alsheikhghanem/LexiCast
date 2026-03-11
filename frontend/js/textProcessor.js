@@ -9,25 +9,26 @@ export class TextProcessor {
     }
 
     renderLivePreview(rawText, displayElement) {
-        const sanitizedText = this.sanitizeInput(rawText);
         let dictionary = {};
         let counter = 0;
 
-        // M-07: Protect code blocks from dual-word regex processing
+        // M-07: Protect code blocks FIRST — before any text processing
         let codeBlocks = {};
         let codeCounter = 0;
-        let protectedText = sanitizedText.replace(/```[\s\S]*?```/g, function (match) {
+        let protectedRaw = rawText.replace(/```[\s\S]*?```/g, function (match) {
             let token = '@@CODE_BLOCK_' + codeCounter++ + '@@';
             codeBlocks[token] = match;
             return token;
         });
-        protectedText = protectedText.replace(/`[^`\n]+`/g, function (match) {
+        protectedRaw = protectedRaw.replace(/`[^`\n]+`/g, function (match) {
             let token = '@@CODE_BLOCK_' + codeCounter++ + '@@';
             codeBlocks[token] = match;
             return token;
         });
 
-        let preProcessedText = protectedText.replace(/\{\{\s*(.*?)\s*(?:\||::)\s*(.*?)\s*}}/g, function (match, visual, phonetic) {
+        const sanitizedText = this.sanitizeInput(protectedRaw);
+
+        let preProcessedText = sanitizedText.replace(/\{\{\s*(.*?)\s*(?:\||::)\s*(.*?)\s*}}/g, function (match, visual, phonetic) {
             let token = '@@DUAL_' + counter++ + '@@';
             dictionary[token] = {visual: visual.trim(), phonetic: phonetic.trim()};
             return token;

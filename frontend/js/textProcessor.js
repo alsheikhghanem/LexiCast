@@ -72,7 +72,8 @@ export class TextProcessor {
                 if (CONJUNCTIONS.test(nextWord.trim())) return true;
             }
             // Break before Arabic prefixed conjunctions (و، فـ)
-            if (nextWord && /^[وف]/.test(nextWord.trim()) && nextWord.trim().length > 1) return true;
+            const trimmedNext = nextWord ? nextWord.trim() : '';
+            if (trimmedNext && /^[وف]/.test(trimmedNext) && trimmedNext.length > 1) return true;
         }
         return false;
     }
@@ -184,10 +185,7 @@ export class TextProcessor {
                 if (!paragraphWords.has(entry.paragraphId)) {
                     paragraphWords.set(entry.paragraphId, []);
                 }
-                paragraphWords.set(entry.paragraphId, [
-                    ...paragraphWords.get(entry.paragraphId),
-                    {entryIdx: idx, globalIdx: entry.globalIdx}
-                ]);
+                paragraphWords.get(entry.paragraphId).push({entryIdx: idx, globalIdx: entry.globalIdx});
             }
         });
 

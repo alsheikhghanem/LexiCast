@@ -436,6 +436,7 @@ export class AudioEngine {
         };
 
         // DTW cost matrix
+        // DTW cost matrix (bounded by chunk size — max ~80 words per chunk from M-09)
         const SKIP_COST = 0.6;
         const dtw = Array.from({length: n + 1}, () => new Float64Array(m + 1).fill(Infinity));
         const path = Array.from({length: n + 1}, () => new Int8Array(m + 1));

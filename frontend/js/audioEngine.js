@@ -23,6 +23,11 @@ export class AudioEngine {
         this.onPlay = null;
         this.onPause = null;
 
+        // M-10: JIT chunk activation callbacks
+        this.onChunkActivate = null;
+        this.onChunkDeactivate = null;
+        this._lastActivatedChunkIndex = -1;
+
         // Web Audio API graph
         this.audioCtx = null;
         this.masterGain = null;
@@ -386,23 +391,113 @@ export class AudioEngine {
     // Word Boundary Alignment
     // =========================================================================
 
+    // M-08: DTW-based word boundary alignment (replaces linear search)
     alignBoundariesToMemoryMap(apiB, words, spanIds) {
-        const res = [];
-        let sIdx = 0;
         const clean = (t) => t.replace(/[^\u0600-\u06FFa-zA-Z0-9]/g, '').toLowerCase();
+
+        // Filter valid API boundaries
+        const apiWords = [];
         for (const b of apiB) {
-            const apiT = clean(b['text'] || "");
-            if (!apiT) continue;
-            for (let i = sIdx; i < Math.min(sIdx + 15, words.length); i++) {
-                if (clean(words[i]).includes(apiT) || apiT.includes(clean(words[i]))) {
-                    res.push({
-                        startMs: b['offset'] / 10000,
-                        endMs: (b['offset'] + b['duration']) / 10000,
-                        spanId: spanIds[i]
-                    });
-                    sIdx = i + 1;
-                    break;
+            const t = clean(b['text'] || "");
+            if (t) apiWords.push({text: t, offset: b['offset'], duration: b['duration']});
+        }
+
+        const cleanDomWords = words.map(w => clean(w));
+        const n = apiWords.length;
+        const m = words.length;
+        if (n === 0 || m === 0) return [];
+
+        // Levenshtein distance (normalized 0-1)
+        const levenshtein = (a, b) => {
+            if (a === b) return 0;
+            if (!a.length) return 1;
+            if (!b.length) return 1;
+            const matrix = [];
+            for (let i = 0; i <= a.length; i++) matrix[i] = [i];
+            for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+            for (let i = 1; i <= a.length; i++) {
+                for (let j = 1; j <= b.length; j++) {
+                    const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j] + 1,
+                        matrix[i][j - 1] + 1,
+                        matrix[i - 1][j - 1] + cost
+                    );
                 }
+            }
+            return matrix[a.length][b.length] / Math.max(a.length, b.length);
+        };
+
+        // Substring containment bonus — handles TTS merging like "والكتاب"
+        const matchCost = (apiText, domText) => {
+            if (apiText === domText) return 0;
+            if (apiText.includes(domText) || domText.includes(apiText)) return 0.1;
+            return levenshtein(apiText, domText);
+        };
+
+        // DTW cost matrix
+        const SKIP_COST = 0.6;
+        const dtw = Array.from({length: n + 1}, () => new Float64Array(m + 1).fill(Infinity));
+        const path = Array.from({length: n + 1}, () => new Int8Array(m + 1));
+        dtw[0][0] = 0;
+
+        // Allow skipping initial DOM words (API might not cover leading text)
+        for (let j = 1; j <= m; j++) {
+            dtw[0][j] = j * SKIP_COST;
+            path[0][j] = 2; // skip DOM word
+        }
+        for (let i = 1; i <= n; i++) {
+            dtw[i][0] = i * SKIP_COST;
+            path[i][0] = 1; // skip API word
+        }
+
+        for (let i = 1; i <= n; i++) {
+            for (let j = 1; j <= m; j++) {
+                const cost = matchCost(apiWords[i - 1].text, cleanDomWords[j - 1]);
+                const match = dtw[i - 1][j - 1] + cost;
+                const skipApi = dtw[i - 1][j] + SKIP_COST;
+                const skipDom = dtw[i][j - 1] + SKIP_COST;
+
+                if (match <= skipApi && match <= skipDom) {
+                    dtw[i][j] = match;
+                    path[i][j] = 0; // match
+                } else if (skipApi <= skipDom) {
+                    dtw[i][j] = skipApi;
+                    path[i][j] = 1; // skip API
+                } else {
+                    dtw[i][j] = skipDom;
+                    path[i][j] = 2; // skip DOM
+                }
+            }
+        }
+
+        // Backtrack to find alignment
+        const alignments = [];
+        let i = n, j = m;
+        while (i > 0 && j > 0) {
+            if (path[i][j] === 0) {
+                alignments.push({apiIdx: i - 1, domIdx: j - 1});
+                i--;
+                j--;
+            } else if (path[i][j] === 1) {
+                i--;
+            } else {
+                j--;
+            }
+        }
+        alignments.reverse();
+
+        // Build boundaries from alignments (threshold: reject very poor matches)
+        const THRESHOLD = 0.7;
+        const res = [];
+        for (const {apiIdx, domIdx} of alignments) {
+            const cost = matchCost(apiWords[apiIdx].text, cleanDomWords[domIdx]);
+            if (cost < THRESHOLD && spanIds[domIdx]) {
+                res.push({
+                    startMs: apiWords[apiIdx].offset / 10000,
+                    endMs: (apiWords[apiIdx].offset + apiWords[apiIdx].duration) / 10000,
+                    spanId: spanIds[domIdx]
+                });
             }
         }
         return res;
@@ -590,7 +685,13 @@ export class AudioEngine {
         let startChunkIndex = 0;
         if (startSpanId) {
             for (let i = 0; i < this.queue.length; i++) {
-                if (this.queue[i].spanIds.includes(startSpanId)) {
+                // M-10: spanIds may be null arrays initially; also check wordEntries
+                const chunk = this.queue[i];
+                const hasSpan = chunk.spanIds && chunk.spanIds.includes(startSpanId);
+                const hasEntry = chunk.wordEntries && chunk.wordEntries.some(
+                    e => e.elementId === startSpanId
+                );
+                if (hasSpan || hasEntry) {
                     startChunkIndex = i;
                     this.targetSpanToSeek = startSpanId;
                     break;
@@ -608,7 +709,14 @@ export class AudioEngine {
 
     async jumpToSpan(spanId) {
         if (this.queue.length === 0) return;
-        const targetIdx = this.queue.findIndex(q => q.spanIds.includes(spanId));
+        // M-10: Search spanIds and also wordEntries for the target
+        let targetIdx = this.queue.findIndex(q => q.spanIds && q.spanIds.includes(spanId));
+        if (targetIdx === -1) {
+            // Try matching by element ID in wordEntries (for dual-word spans that always exist)
+            targetIdx = this.queue.findIndex(q =>
+                q.wordEntries && q.wordEntries.some(e => e.elementId === spanId)
+            );
+        }
         if (targetIdx === -1) return;
 
         // Fade out over 200ms for smooth transition
@@ -697,6 +805,11 @@ export class AudioEngine {
         const index = this.currentIndex;
 
         if (index >= this.queue.length || !this.isPlaying) {
+            // M-10: Deactivate last chunk on playback end
+            if (this._lastActivatedChunkIndex >= 0 && this.onChunkDeactivate) {
+                this.onChunkDeactivate(this._lastActivatedChunkIndex);
+                this._lastActivatedChunkIndex = -1;
+            }
             this._endPlayback(index >= this.queue.length);
             return;
         }
@@ -714,6 +827,16 @@ export class AudioEngine {
         }
 
         try {
+            // M-10: JIT activation — activate this chunk, deactivate previous
+            if (this.onChunkActivate) {
+                if (this._lastActivatedChunkIndex >= 0 && this._lastActivatedChunkIndex !== index && this.onChunkDeactivate) {
+                    this.onChunkDeactivate(this._lastActivatedChunkIndex);
+                }
+                const activatedSpanIds = this.onChunkActivate(index);
+                if (activatedSpanIds) chunk.spanIds = activatedSpanIds;
+                this._lastActivatedChunkIndex = index;
+            }
+
             const buffer = chunk.audioBuffer;
 
             // Compute word boundaries before seeking
@@ -908,6 +1031,11 @@ export class AudioEngine {
 
     hardReset() {
         this.stop();
+        // M-10: Deactivate last chunk on reset
+        if (this._lastActivatedChunkIndex >= 0 && this.onChunkDeactivate) {
+            this.onChunkDeactivate(this._lastActivatedChunkIndex);
+        }
+        this._lastActivatedChunkIndex = -1;
         this.currentBuffer = null;
         this.pausedAt = 0;
         this.queue = [];

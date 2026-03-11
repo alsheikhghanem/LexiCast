@@ -37,6 +37,13 @@ const audioEngine = new AudioEngine(api);
 let currentChunks = [];
 let progressTrackerId = null;
 
+// M-10: Wire JIT chunk activation/deactivation
+audioEngine.onChunkActivate = (chunkIndex) => {
+    textProcessor.activateChunk(chunkIndex);
+    return textProcessor.chunks[chunkIndex] ? textProcessor.chunks[chunkIndex].spanIds : null;
+};
+audioEngine.onChunkDeactivate = (chunkIndex) => textProcessor.deactivateChunk(chunkIndex);
+
 audioEngine.setupVisualizer(elements.visualizerCanvas);
 
 function resizeCanvas() {
